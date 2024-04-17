@@ -1,0 +1,14 @@
+name: Check Rust formatting
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  check-rust-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup component add rustfmt
+      - name: Check format
+        run: cargo fmt -- --check
