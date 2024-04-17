@@ -77,7 +77,7 @@ pub async fn subscribe_to_container_logs(
         }
     }
 
-    println!("Subscription to container logs ended");
+    tracing::info!(?container_id, backend_id, "Log stream ended.");
 }
 
 pub async fn log_subscriber(sender: Sender<LogMessage>) -> Result<()> {
