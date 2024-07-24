@@ -52,7 +52,7 @@ pub async fn subscribe_to_container_logs(
             LogOutput::StdOut { message } => message,
         };
 
-        let text = match std::str::from_utf8(&log_payload) {
+        let text = match std::str::from_utf8(log_payload) {
             Ok(log) => log.to_string(),
             Err(e) => {
                 tracing::warn!(?e, "Error parsing log as UTF-8");
@@ -98,8 +98,19 @@ pub async fn log_subscriber(sender: Sender<LogMessage>) -> Result<()> {
             continue;
         };
 
-        let Some(backend) = labels.get(PLANE_BACKEND_LABEL) else {
+        if !labels.contains_key(PLANE_BACKEND_LABEL) {
             // Not a Plane backend.
+            continue;
+        };
+
+        let Some(names) = container.names else {
+            // No names
+            continue;
+        };
+
+        let Some(backend) = names.iter().find_map(|name| name.strip_prefix("plane-")) else {
+            // No plane backend name
+            tracing::warn!(?names, "Encountered container with no plane backend name.");
             continue;
         };
 
@@ -112,7 +123,7 @@ pub async fn log_subscriber(sender: Sender<LogMessage>) -> Result<()> {
         log_task_map.entry(container_id.clone()).or_insert_with(|| {
             tokio::spawn(subscribe_to_container_logs(
                 docker.clone(),
-                backend.clone(),
+                backend.to_string(),
                 container_id,
                 sender.clone(),
             ))
@@ -131,8 +142,18 @@ pub async fn log_subscriber(sender: Sender<LogMessage>) -> Result<()> {
             continue;
         };
 
-        let Some(backend) = attributes.get(PLANE_BACKEND_LABEL) else {
-            tracing::info!("Event did not have backend attribute.");
+        if !attributes.contains_key(PLANE_BACKEND_LABEL) {
+            tracing::warn!("Event did not have plane backend label.");
+            continue;
+        };
+
+        let Some(name) = attributes.get("name") else {
+            tracing::warn!("Event did not have name attribute.");
+            continue;
+        };
+
+        let Some(backend) = name.strip_prefix("plane-") else {
+            tracing::warn!(?name, "Event did not have valid backend name.");
             continue;
         };
 
@@ -146,7 +167,7 @@ pub async fn log_subscriber(sender: Sender<LogMessage>) -> Result<()> {
         log_task_map.entry(container_id.clone()).or_insert_with(|| {
             tokio::spawn(subscribe_to_container_logs(
                 docker.clone(),
-                backend.clone(),
+                backend.to_string(),
                 container_id,
                 sender.clone(),
             ))
