@@ -108,7 +108,8 @@ pub async fn log_subscriber(sender: Sender<LogMessage>) -> Result<()> {
             continue;
         };
 
-        let Some(backend) = names.iter().find_map(|name| name.strip_prefix("plane-")) else {
+        // The '/' is not a typo -- this is a Docker thing.
+        let Some(backend) = names.iter().find_map(|name| name.strip_prefix("/plane-")) else {
             // No plane backend name
             tracing::warn!(?names, "Encountered container with no plane backend name.");
             continue;
@@ -133,27 +134,27 @@ pub async fn log_subscriber(sender: Sender<LogMessage>) -> Result<()> {
     // Then, watch for containers to start and start loggers.
     while let Some(event) = watch_handle.try_next().await? {
         let Some(actor) = event.actor else {
-            tracing::info!("Event did not have actor.");
+            tracing::info!(?event, "Event did not have actor.");
             continue;
         };
 
         let Some(attributes) = actor.attributes else {
-            tracing::info!("Event did not have attributes.");
+            tracing::info!(?actor, "Event did not have attributes.");
             continue;
         };
 
         if !attributes.contains_key(PLANE_BACKEND_LABEL) {
-            tracing::warn!("Event did not have plane backend label.");
+            tracing::info!(?attributes, "Event did not have plane backend label.");
             continue;
         };
 
         let Some(name) = attributes.get("name") else {
-            tracing::warn!("Event did not have name attribute.");
+            tracing::info!(?attributes, "Event did not have name attribute.");
             continue;
         };
 
         let Some(backend) = name.strip_prefix("plane-") else {
-            tracing::warn!(?name, "Event did not have valid backend name.");
+            tracing::info!(?name, "Event did not have valid backend name.");
             continue;
         };
 
